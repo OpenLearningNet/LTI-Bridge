@@ -1,7 +1,12 @@
 import { AzureFunction, Context, HttpRequest } from "@azure/functions"
 import { Provider } from 'ims-lti';
 import * as qs from 'querystring';
-import { completeLaunch } from './integrations/ezproxy';
+
+import { completeLaunch as ezProxy } from './integrations/ezproxy';
+
+const integrations = {
+  "EZProxy": ezProxy
+};
 
 const getSecret = async function(consumerKey: string): Promise<string> {
   if (consumerKey === process.env.LTI_CONSUMER_KEY) {
@@ -63,6 +68,7 @@ const launch = async function (context: Context, req: HttpRequest): Promise<void
   if (!isValid) {
     throw new Error("Unable to authenticate");
   } else {
+    const completeLaunch = integrations[process.env.BRIDGE_INTEGRATION];
     await completeLaunch(context, req, params);
   }
 };
