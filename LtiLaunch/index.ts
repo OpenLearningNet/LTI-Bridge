@@ -4,13 +4,35 @@ import * as qs from 'querystring';
 
 import { completeLaunch as ezProxy } from './integrations/ezproxy';
 
+const consumers = JSON.parse(process.env.CONSUMERS);
+/*
+{
+  "Consumer Key": {
+    "integration": "EZProxy",
+    "secret": "SECRET KEY",
+    "config": {...}
+  }
+}
+*/
+
 const integrations = {
   "EZProxy": ezProxy
 };
 
+const getIntegration = async function(consumerKey: string): Promise<(context: Context, req: HttpRequest, params: any) => Promise<void>> {
+  const consumer = consumers[consumerKey];
+  const integration = consumer.integration;
+  if (integrations[integration]) {
+    return integrations[integration](consumer.config);
+  } else {
+    throw new Error("No such integration configured");
+  }
+};
+
 const getSecret = async function(consumerKey: string): Promise<string> {
-  if (consumerKey === process.env.LTI_CONSUMER_KEY) {
-    return process.env.LTI_SECRET;
+  const consumer = consumers[consumerKey];
+  if (consumer) {
+    return consumer.secret;
   } else {
     throw new Error("Unknown LTI Consumer");
   }
@@ -68,7 +90,7 @@ const launch = async function (context: Context, req: HttpRequest): Promise<void
   if (!isValid) {
     throw new Error("Unable to authenticate");
   } else {
-    const completeLaunch = integrations[process.env.BRIDGE_INTEGRATION];
+    const completeLaunch = await getIntegration(consumerKey);
     await completeLaunch(context, req, params);
   }
 };
