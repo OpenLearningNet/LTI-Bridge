@@ -1,8 +1,8 @@
-import { AzureFunction, Context, HttpRequest } from "@azure/functions"
-import { Provider } from 'ims-lti';
-import * as qs from 'querystring';
+import { AzureFunction, Context, HttpRequest } from "@azure/functions";
+import { Provider } from "ims-lti";
+import * as qs from "querystring";
 
-import { completeLaunch as ezProxy } from './integrations/ezproxy';
+import { completeLaunch as ezProxy } from "./integrations/ezproxy";
 
 const consumers = JSON.parse(process.env.CONSUMERS);
 /*
@@ -16,10 +16,12 @@ const consumers = JSON.parse(process.env.CONSUMERS);
 */
 
 const integrations = {
-  "EZProxy": ezProxy
+  EZProxy: ezProxy,
 };
 
-const getIntegration = async function(consumerKey: string): Promise<(context: Context, req: HttpRequest, params: any) => Promise<void>> {
+const getIntegration = async function (
+  consumerKey: string
+): Promise<(context: Context, req: HttpRequest, params: any) => Promise<void>> {
   const consumer = consumers[consumerKey];
   const integration = consumer.integration;
   if (integrations[integration]) {
@@ -29,14 +31,14 @@ const getIntegration = async function(consumerKey: string): Promise<(context: Co
   }
 };
 
-const getSecret = async function(consumerKey: string): Promise<string> {
+const getSecret = async function (consumerKey: string): Promise<string> {
   const consumer = consumers[consumerKey];
   if (consumer) {
     return consumer.secret;
   } else {
     throw new Error("Unknown LTI Consumer");
   }
-}
+};
 
 const buildRequest = (req: HttpRequest, params: any) => {
   const url = process.env.LTI_LAUNCH_URL || req.url;
@@ -52,39 +54,39 @@ const buildRequest = (req: HttpRequest, params: any) => {
       host,
     },
     connection: {
-      encrypted: urlObject.protocol === 'https:',
+      encrypted: urlObject.protocol === "https:",
     },
   };
 };
 
-const launch = async function (context: Context, req: HttpRequest): Promise<void> {
-	const params = qs.parse(req.rawBody);
-	const consumerKey = params.oauth_consumer_key;
-	if (!consumerKey || typeof consumerKey !== 'string') {
-	  context.res = {
+const launch = async function (
+  context: Context,
+  req: HttpRequest
+): Promise<void> {
+  const params = qs.parse(req.rawBody);
+  const consumerKey = params.oauth_consumer_key;
+  if (!consumerKey || typeof consumerKey !== "string") {
+    context.res = {
       status: 422,
       body: `Consumer key is required`,
-	  };
-	  context.done();
-	  return;
-	}
+    };
+    context.done();
+    return;
+  }
 
   const secret = await getSecret(consumerKey);
 
   const provider = new Provider(consumerKey, secret);
   const requestObj = buildRequest(req, params);
   const isValid = await new Promise((resolve) => {
-    provider.valid_request(
-      requestObj,
-      (err: Error, isValid: boolean) => {
-        if (err || !isValid) {
-          console.error(err);
-          resolve(false);
-        } else {
-          resolve(true);
-        }
+    provider.valid_request(requestObj, (err: Error, isValid: boolean) => {
+      if (err || !isValid) {
+        console.error(err);
+        resolve(false);
+      } else {
+        resolve(true);
       }
-    );
+    });
   });
 
   if (!isValid) {
@@ -95,15 +97,18 @@ const launch = async function (context: Context, req: HttpRequest): Promise<void
   }
 };
 
-const httpTrigger: AzureFunction = async function (context: Context, req: HttpRequest): Promise<void> {
-	if (req.method != 'POST') {
-		context.res = {
-			status: 405,
-			body: 'POST request required to launch',
-		};
-	} else {
+const httpTrigger: AzureFunction = async function (
+  context: Context,
+  req: HttpRequest
+): Promise<void> {
+  if (req.method != "POST") {
+    context.res = {
+      status: 405,
+      body: "POST request required to launch",
+    };
+  } else {
     try {
-	  	await launch(context, req);
+      await launch(context, req);
     } catch (error) {
       context.res = {
         status: 403,
@@ -111,7 +116,7 @@ const httpTrigger: AzureFunction = async function (context: Context, req: HttpRe
       };
       context.done();
     }
-	}
+  }
 };
 
 export default httpTrigger;
